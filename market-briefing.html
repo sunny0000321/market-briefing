@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日盤前情報</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --border: #1e2330;
+    --accent: #e8c94a;
+    --accent2: #4af0c4;
+    --red: #ff4757;
+    --green: #2ed573;
+    --text: #e8eaf0;
+    --muted: #5a6070;
+    --card: #13161e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(232,201,74,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,201,74,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .header-left h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 8vw, 56px);
+    letter-spacing: 4px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .header-left .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  .header-right {
+    text-align: right;
+  }
+
+  .date-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(232,201,74,0.08);
+    border: 1px solid rgba(232,201,74,0.2);
+    padding: 6px 14px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+
+  /* Sources section */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Source cards */
+  .sources-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  @media (max-width: 600px) { .sources-grid { grid-template-columns: 1fr; } }
+
+  .source-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .source-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+  .source-card.active {
+    border-color: var(--accent);
+    background: rgba(232,201,74,0.06);
+  }
+
+  .source-card.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .source-icon {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .source-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .source-desc {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .source-toggle {
+    position: absolute;
+    top: 12px; right: 12px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    transition: all 0.2s;
+  }
+
+  .source-card.active .source-toggle {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Query input */
+  .query-section { margin-bottom: 20px; }
+
+  .query-box {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  .query-box:focus { border-color: var(--accent); }
+  .query-box::placeholder { color: var(--muted); }
+
+  /* Action button */
+  .run-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #0a0c0f;
+    border: none;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .run-btn:hover { background: #f0d55a; transform: translateY(-1px); }
+  .run-btn:active { transform: translateY(0); }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .run-btn .btn-shine {
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shine 2s infinite;
+  }
+
+  @keyframes shine {
+    0% { left: -100%; }
+    100% { left: 200%; }
+  }
+
+  /* Result area */
+  .result-area {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    min-height: 200px;
+    display: none;
+    flex-direction: column;
+  }
+
+  .result-area.visible { display: flex; }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .result-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+
+  .result-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .result-body {
+    padding: 20px 18px;
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--text);
+  }
+
+  /* Loading animation */
+  .loading-dots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 30px 0;
+    justify-content: center;
+  }
+
+  .loading-dots span {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes pulse {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Markdown-style content rendering */
+  .result-body h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 20px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 1px;
+  }
+
+  .result-body h2:first-child { margin-top: 0; }
+
+  .result-body p { margin-bottom: 10px; }
+
+  .result-body ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 14px;
+  }
+
+  .result-body ul li {
+    padding: 5px 0 5px 18px;
+    position: relative;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 13.5px;
+  }
+
+  .result-body ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 10px;
+    top: 7px;
+  }
+
+  .bull { color: var(--green); font-weight: 700; }
+  .bear { color: var(--red); font-weight: 700; }
+  .neutral { color: var(--accent2); font-weight: 700; }
+
+  .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    margin-right: 6px;
+  }
+
+  .tag-bull { background: rgba(46,213,115,0.12); color: var(--green); border: 1px solid rgba(46,213,115,0.3); }
+  .tag-bear { background: rgba(255,71,87,0.12); color: var(--red); border: 1px solid rgba(255,71,87,0.3); }
+  .tag-watch { background: rgba(74,240,196,0.1); color: var(--accent2); border: 1px solid rgba(74,240,196,0.25); }
+
+  /* Ticker strip */
+  .ticker-strip {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 0;
+    overflow: hidden;
+    z-index: 100;
+  }
+
+  .ticker-inner {
+    display: flex;
+    gap: 40px;
+    animation: ticker 30s linear infinite;
+    width: max-content;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  .ticker-item { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .ticker-sym { color: var(--muted); }
+  .ticker-up { color: var(--green); }
+  .ticker-dn { color: var(--red); }
+
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* Error */
+  .error-msg {
+    color: var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  /* Streaming cursor */
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--accent);
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+  }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>盤前情報</h1>
+      <div class="subtitle">DAILY MARKET BRIEFING // AI-POWERED</div>
+    </div>
+    <div class="header-right">
+      <div class="date-badge" id="dateBadge">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="section-label">情報來源</div>
+  <div class="sources-grid">
+    <div class="source-card active" data-source="gooaye" onclick="toggleSource(this)">
+      <div class="source-icon">🎙️</div>
+      <div class="source-name">股癌 Gooaye</div>
+      <div class="source-desc">Podcast / 謝孟恭</div>
+      <div class="source-toggle"></div>
+    </div>
+    <div class="source-card active" data-source="yu" onclick="toggleSource(this)">
+      <div class="source-icon">📊</div>
+      <div class="source-name">游庭皓</div>
+      <div class="source-desc">技術分析 / 盤勢解讀</div>
+      <div class="source-toggle"></div>
+    </div>
+    <div class="source-card active" data-source="substack" onclick="toggleSource(this)">
+      <div class="source-icon">✉️</div>
+      <div class="source-name">Substack</div>
+      <div class="source-desc">財經電子報 / 訂閱內容</div>
+      <div class="source-toggle"></div>
+    </div>
+  </div>
+
+  <!-- Query -->
+  <div class="section-label">今日查詢</div>
+  <div class="query-section">
+    <textarea class="query-box" id="queryInput" rows="3"
+      placeholder="例：今天美股盤前重點是什麼？台積電 / 輝達走勢如何看？有什麼需要注意的風險？">今天美股開盤前有什麼重點需要注意？請整合各來源觀點，給我今日盤勢方向、關鍵支撐壓力、以及需要追蹤的個股或事件。</textarea>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runBriefing()">
+    <span class="btn-shine"></span>
+    ⚡ 產生今日情報摘要
+  </button>
+
+  <!-- Result -->
+  <div class="result-area" id="resultArea">
+    <div class="result-header">
+      <div class="result-title">AI 情報分析</div>
+      <div class="result-status" id="resultStatus">就緒</div>
+    </div>
+    <div class="result-body" id="resultBody"></div>
+  </div>
+</div>
+
+<!-- Ticker -->
+<div class="ticker-strip">
+  <div class="ticker-inner" id="tickerInner"></div>
+</div>
+
+<script>
+// --- Date ---
+const now = new Date();
+document.getElementById('dateBadge').textContent =
+  now.toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', weekday:'short' });
+
+// --- Ticker ---
+const tickers = [
+  ['SPY','S&P 500'],['QQQ','Nasdaq'],['NVDA','輝達'],['TSM','台積電ADR'],
+  ['AAPL','蘋果'],['MSFT','微軟'],['AMZN','亞馬遜'],['META','Meta'],
+  ['TSLA','特斯拉'],['GOOGL','Google'],['DXY','美元指數'],['GLD','黃金'],
+  ['SPY','S&P 500'],['QQQ','Nasdaq'],['NVDA','輝達'],['TSM','台積電ADR'],
+  ['AAPL','蘋果'],['MSFT','微軟'],['AMZN','亞馬遜'],['META','Meta'],
+  ['TSLA','特斯拉'],['GOOGL','Google'],['DXY','美元指數'],['GLD','黃金'],
+];
+
+const tickerEl = document.getElementById('tickerInner');
+tickerEl.innerHTML = tickers.map(([sym, name]) => {
+  const up = Math.random() > 0.45;
+  const pct = (Math.random() * 3.5 + 0.1).toFixed(2);
+  const cls = up ? 'ticker-up' : 'ticker-dn';
+  const sign = up ? '+' : '-';
+  return `<div class="ticker-item">
+    <span class="ticker-sym">${sym}</span>
+    <span>${name}</span>
+    <span class="${cls}">${sign}${pct}%</span>
+  </div>`;
+}).join('');
+
+// --- Sources toggle ---
+let activeSources = new Set(['gooaye', 'yu', 'substack']);
+
+function toggleSource(el) {
+  const src = el.dataset.source;
+  if (activeSources.has(src)) {
+    if (activeSources.size === 1) return; // keep at least one
+    activeSources.delete(src);
+    el.classList.remove('active');
+  } else {
+    activeSources.add(src);
+    el.classList.add('active');
+  }
+}
+
+// --- Source descriptions for prompt ---
+const sourceInfo = {
+  gooaye: `股癌（Gooaye，謝孟恭）：台灣知名財經 Podcast 主持人，以總經觀點、宏觀視野聞名，擅長解讀 Fed 政策、美股大盤趨勢、市場情緒，語風幽默犀利。`,
+  yu: `游庭皓：台灣知名技術分析師，專注美股與台股技術面，擅長 K 線型態、支撐壓力、均線操作，每日提供盤勢解讀與進出場策略。`,
+  substack: `Substack 財經電子報：涵蓋多位財經作者觀點，包含 Howard Lindzon、Doomberg、The Diff 等英文財經內容，以及台灣本地財經訂閱電子報，提供深度分析與市場洞察。`
+};
+
+// --- Main function ---
+async function runBriefing() {
+  const query = document.getElementById('queryInput').value.trim();
+  if (!query) return;
+
+  const btn = document.getElementById('runBtn');
+  const resultArea = document.getElementById('resultArea');
+  const resultBody = document.getElementById('resultBody');
+  const resultStatus = document.getElementById('resultStatus');
+
+  btn.disabled = true;
+  resultArea.classList.add('visible');
+  resultStatus.textContent = '搜尋中...';
+  resultBody.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+
+  // Build source context
+  const selectedSources = [...activeSources].map(s => sourceInfo[s]).join('\n\n');
+  const dateStr = now.toLocaleDateString('zh-TW', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+
+  const systemPrompt = `你是一個專業的財經情報助理，專門為台灣投資人整合每日盤前資訊。
+
+今天是 ${dateStr}。
+
+你需要模擬以下財經意見領袖的觀點風格來整合分析：
+${selectedSources}
+
+請用繁體中文回覆，格式如下：
+
+## 📡 今日市場概況
+（簡述今日盤前重要背景，包含美股昨收、期貨、重要經濟數據）
+
+## 🔍 各家觀點整合
+（分別模擬各意見領袖可能的解讀角度，200字內）
+
+## 📈 今日盤勢方向
+（給出多空偏向，並標記 [多] [空] [觀望]，附上關鍵支撐壓力位）
+
+## ⚡ 重點追蹤清單
+（列出今日需要關注的個股、事件、數據發布）
+
+## ⚠️ 風險提示
+（今日需要注意的潛在風險因子）
+
+語氣專業、簡潔，適合台灣投資人在開盤前快速瀏覽。`;
+
+  try {
+    resultStatus.textContent = '分析中...';
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: systemPrompt,
+        messages: [{ role: 'user', content: query }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    const data = await response.json();
+
+    resultStatus.textContent = '完成 ✓';
+
+    const text = data.content
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n');
+
+    renderMarkdown(text, resultBody);
+
+  } catch (err) {
+    resultStatus.textContent = '錯誤';
+    resultBody.innerHTML = `<div class="error-msg">⚠️ 無法取得資料：${err.message}<br><br>請稍後再試</div>`;
+  }
+
+  btn.disabled = false;
+}
+
+// --- Markdown renderer ---
+function renderMarkdown(text, el) {
+  let html = text
+    .replace(/## (.+)/g, '<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[多\]/g, '<span class="tag tag-bull">多</span>')
+    .replace(/\[空\]/g, '<span class="tag tag-bear">空</span>')
+    .replace(/\[觀望\]/g, '<span class="tag tag-watch">觀望</span>')
+    .replace(/^[-•]\s(.+)/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+
+  html = `<p>${html}</p>`;
+  el.innerHTML = html;
+}
+
+// Enter shortcut
+document.getElementById('queryInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) runBriefing();
+});
+</script>
+</body>
+</html>
